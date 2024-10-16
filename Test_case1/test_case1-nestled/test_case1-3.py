@@ -10,9 +10,9 @@ class Test_class:
             print("Fungerar det innanför en klass?") #2, 1
 
             return "Här kommer stupet"#3, 2
-        
+
 def method_after_class():
     return "Hoppas detta fungerar" # 1
 
 #Genomsnitt = 1.25
-#Weight= 4S
+#Weight= 4

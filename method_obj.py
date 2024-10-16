@@ -45,7 +45,19 @@ class method:
 
     def get_parent(self):
         return self.parent
+
+    def inc_comments(self, inc = 1):
+        self.comments += inc
     
+    def get_comments(self):
+        return self.comments
+
+    def inc_docstring(self, inc=1):
+        self.docstrings += inc
+    
+    def get_docstring(self):
+        return self.docstrings
+
 class file():
     def __init__(self, name, type, path):
         self.name = name
@@ -54,42 +66,83 @@ class file():
 
         self.children = []
         self.len = 0
-        self.mean_method_size = 0
+
         self.weight = 0
-        self.no_of_comments = 0
-        self.no_of_docstring = 0
+        
         self.line_size = 0
         self.average_line_size = 0
+
+        self.mean_comments = 0
+        self.mean_docstring = 0
+        self.mean_comment_docstring = 0
+        self.max_lines = 0
+        self.min_lines = -1
+        self.mean_method_size = 0
+
+
     
     def add_child(self, child):
         self.children.append(child)
 
     def calc_mean(self):
-        total = 0
+        
         if self.type == "file":
             methods = count_method_lines(self.abs_path)
             
-            self.mean_method_size, self.weight = compile_method_data(methods)
+            self.mean_method_size, self.weight, self.max_lines, self.min_lines, self.mean_comments, self.mean_docstring, self.mean_comment_docstring = compile_method_data(methods)
 
-            return self.mean_method_size
         elif self.type == "folder":
             print(self.abs_path)
+            line_total = 0
+            comment_total = 0
+            docstring_total = 0
+            comment_docstring_total = 0
+
+            if len(self.children) == 0:
+                return
 
             for child in self.children:
                 child_weight = child.get_weight()
                 self.weight += child_weight
-                total += child.get_mean_method_size() * child_weight
+                line_total += child.get_mean_method_size() * child_weight
+                comment_total += child.get_comment_mean() *child_weight
+                docstring_total += child.get_docstring_mean() * child_weight
+                comment_docstring_total += child.get_mean_comment_docstring() * child_weight
 
-            if self.weight == 0: return 0
+                if child.get_max() > self.max_lines:
+                    self.max_lines = child.get_max()
+                if (child.get_min() < self.min_lines or self.min_lines == -1) and child.get_min() != -1:
+                    self.min_lines = child.get_min()
+            
+            if self.weight == 0:
+                self.min_lines = -1
+                return
 
-            self.mean_method_size = total/self.weight
-            return self.mean_method_size
+            self.mean_method_size = line_total/self.weight
+            self.mean_comments = comment_total/self.weight
+            self.mean_docstring = docstring_total/self.weight
+            self.mean_comment_docstring = comment_docstring_total/self.weight
     
     def get_mean_method_size(self):
         return self.mean_method_size
+
+    def get_comment_mean(self):
+        return self.mean_comments
+    
+    def get_docstring_mean(self):
+        return self.mean_docstring
+    
+    def get_mean_comment_docstring(self):
+        return self.mean_comment_docstring
     
     def get_weight(self):
         return self.weight
+    
+    def get_max(self):
+        return self.max_lines
+    
+    def get_min(self):
+        return self.min_lines
     
     def get_children(self):
         return self.children
@@ -107,25 +160,67 @@ class file():
             child.retrieve_data(saved_data, abs_name, level +1)
         
 
-    def print_structure(self, level=0):
+    def print_structure(self, level=0, max_level = None, mean_method= True, max=True, min=True, mean_comments=False, mean_docstring=False, mean_docstring_comment = False):
         """Helper method to print the structure of the tree."""
         indent = " " * (level * 4)
-        print(f"{indent}{self.name} (Type: {self.type}, mean method size: {self.mean_method_size})")
+        string_to_print = f"{indent}{self.name} (Type: {self.type}"
+        
+        if mean_method:
+            string_to_print += f", mean method size: {self.mean_method_size}"
+        if max:
+            string_to_print += f", size of biggest method: {self.max_lines}"
+        if min:
+            string_to_print += f", size of smallest method: {self.min_lines}"
+        if mean_comments:
+            string_to_print += f", mean ammount of comments per method: {self.mean_comments}"
+        if mean_docstring:
+            string_to_print += f", mean ammount of docstrings per method: {self.mean_docstring}"
+        if mean_docstring_comment:
+            string_to_print += f", mean ammount of both docstring and comment per method: {self.mean_comment_docstring}"
+        string_to_print += ")"
+
+        print(string_to_print)
+        if max_level:
+            if level == max_level:
+                return
+
         for child in self.children:
-            child.print_structure(level + 1)
+            child.print_structure(level + 1, max_level, mean_method, max, min, mean_comments, mean_docstring, mean_docstring_comment)
         
     
 
 def find_end(line):
     string_without_spaces = line.replace(" ", "").replace("\n", "").replace("\t", "")
-    previous = ""
+    
     for i in string_without_spaces:
-        if i == ":" and previous == ")":
+        if i == ":":
             return True
         previous = i
     return False
 
+def find_parent(method, indent):
+    parent = None
+    method_to_compare = method
+    while method_to_compare != None:
+        if method_to_compare.get_indent() < indent:
+            parent = method_to_compare
+            break
+        method_to_compare = method_to_compare.get_parent()
+    return parent
 
+def simple_inc(method, line, inside_docstring):
+    if line.strip().startswith("#"):  # Check if the entire string is a comment
+        # print("Finds it as only comment")
+        method.inc_comments()
+    elif inside_docstring or (line.strip().startswith('\'\'\'') and line.strip().endswith('\'\'\'')) or (line.strip().startswith('\"\"\"') and line.strip().endswith('\"\"\"')):
+        method.inc_docstring()
+        # print("Finds it as docstring")
+    else:  # Check if the string contains a comment
+        method.inc_line_count()  
+        # print("Finds it as normal line")
+        if '#' in line:
+            method.inc_comments()
+            # print("Finds it as comment too!")
 
 def count_method_lines(file_path):
     method_regex = re.compile(r'^\s*def\s+(\w+)\s*\(')  
@@ -157,7 +252,7 @@ def count_method_lines(file_path):
     parant_start_check = None
 
     with open(file_path, 'r', errors="ignore") as file:
-        print(f"Current file: {file_path}")
+        # print(f"Current file: {file_path}")
         for line in file:
 
             stripped_line = line.strip()
@@ -166,10 +261,8 @@ def count_method_lines(file_path):
             # skipa tomma rader och simpla hashtag kommentarer
             comment_check = comment_regex.match(line)
 
-
-            if not stripped_line or (comment_check != None):
+            if not stripped_line:
                 continue
-
 
             docstring_check = docstring_regex.findall(line)
 
@@ -187,10 +280,7 @@ def count_method_lines(file_path):
                     if docstring_check[0] == docstring_type:
                         inside_docstring = False
                         docstring_type = None
-                continue
 
-            if inside_docstring:
-                continue
 
             indent_level = len(expanded_line) - len(expanded_line.lstrip())
             # print("-------------------------------------------")
@@ -240,12 +330,11 @@ def count_method_lines(file_path):
             # print(f"Inside parameter: {inside_parameters}")
 
 
-            if match != None and not inside_parameters:
+            if match != None and not inside_parameters and not inside_docstring:
                 
                 # end_params_check = param_end_regex.match(line)
                 # print(f'CHECKEN: {end_params_check}')
                 # print(f'Checken är {param_end_regex.pattern}')
-                
                 if find_end(line):
                     # print("Hittar slutet")
                     inside_parameters = False
@@ -253,43 +342,52 @@ def count_method_lines(file_path):
                     # print("Hittar inte slutet: i line: " + line)
                     inside_parameters = True
                 
+
                 if current_method is not None:
-                    methods[current_method.get_name()] = current_method.get_line_count()  
+                    methods[current_method.get_name()] = current_method
+
+                if current_method: 
+                    if current_method.get_parent():
+                        lines_counted = current_method.get_line_count()
+                        comments_counted = current_method.get_comments()
+                        docstrings_counted = current_method.get_docstring()
+
+                        parent.inc_line_count(lines_counted)
+                        parent.inc_comments(comments_counted)
+                        parent.inc_docstring(docstrings_counted)
 
                
-                parent = None
-                method_to_compare = current_method
-                while method_to_compare != None:
-                    if method_to_compare.get_indent() < indent_level:
-                        parent = method_to_compare
-                        break
-                    method_to_compare = method_to_compare.get_parent()
+                parent = find_parent(current_method, indent_level)
                     
                 # Checkar ifall en inre metod påbörjas
                 
                 # print(f'Name: {match.group(1)}, parent: {parent}, indent level: {indent_level}')
                 current_method = method(match.group(1), parent, indent_level)
+                if '#' in line:
+                    current_method.inc_comments()
 
-            elif match == None and (method_indent >= indent_level and indent_level != 0 and not end_was_not_found and not inside_parameters):
-                # print("000")
-                # print(f'Method indent: {method_indent}, Indent level: {indent_level}')
-                #Ifall den inre metoden har tagit slut byter vi till föräldra metoden
+            elif match == None and method_indent >= indent_level and not end_was_not_found and not inside_parameters:
+                # print("1111")
                 lines_counted = current_method.get_line_count()
-                methods[current_method.get_name()] = lines_counted
-                current_method = current_method.get_parent()
-                if parent:
-                    current_method.inc_line_count()
-                    #Lägger till inre metodens line count till förälderns
-                    current_method.inc_line_count(lines_counted)
-            elif match == None and (method_indent >= indent_level or indent_level == 0) and not end_was_not_found and not inside_parameters:
-                # print("111")
-                #Ifall det är kod som inte tillhör någon metod
+                comments_counted = current_method.get_comments()
+                docstrings_counted = current_method.get_docstring()
+
                 if current_method:
-                    methods[current_method.get_name()] = current_method.get_line_count()
-                current_method = None
+                    methods[current_method.get_name()] = current_method
+                parent = find_parent(current_method, indent_level)
+                if parent:
+                    parent.inc_line_count(lines_counted)
+                    parent.inc_comments(comments_counted)
+                    parent.inc_docstring(docstrings_counted)
+
+                
+                current_method = parent
+                if current_method:
+                    simple_inc(current_method, line, inside_docstring)
+
             elif current_method is not None and not inside_parameters:
                 # print("22222")
-                current_method.inc_line_count()  
+                simple_inc(current_method, line, inside_docstring)
             if inside_parameters:
                 end_params_check = find_end(line)
             if end_params_check:
@@ -299,14 +397,31 @@ def count_method_lines(file_path):
             else: end_was_not_found = False
 
         if current_method is not None:
-            methods[current_method.get_name()] = current_method.get_line_count()
+            methods[current_method.get_name()] = current_method
     
     return methods
 
 
 def compile_method_data(method_dict):
-    values = method_dict.values()
-    if len(values) == 0:
-        return 0, 0
-    mean = sum(values)/len(values)
-    return mean, len(values)
+    methods = list(method_dict.values())
+    if len(methods) == 0:
+        return 0, 0, 0, -1, 0, 0, 0
+    
+    line_values = []
+    comment_values = []
+    docstring_values = []
+    for m in methods:
+        line_values.append(m.get_line_count())
+        comment_values.append(m.get_comments())
+        docstring_values.append(m.get_docstring())
+        if m.get_line_count() == 0:
+            print(f"{m.get_name()} har inga lines")
+
+
+    
+    weight = len(line_values)
+    line_mean = sum(line_values)/weight
+    mean_comments = sum(comment_values)/weight
+    mean_docstring = sum(docstring_values)/weight
+    mean_comment_docstring = (sum(docstring_values) + sum(comment_values))/weight
+    return line_mean, len(line_values), max(line_values), min(line_values), mean_comments, mean_docstring, mean_comment_docstring
