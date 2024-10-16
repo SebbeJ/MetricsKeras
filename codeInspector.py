@@ -15,11 +15,7 @@ Forms them,
 Distorts them,
 All with intent and purpose.
 
-What war and a failing body did to Goya, regex and recursive functions have done to me.
-I, Sebastian Johansson, do not intend to ever let this code see the light of day outside of this project,
-Just like how Goya never intended for his Black Paintings to ever leave the inside of the walls of his home.
-
-Whether this decision will give me comfort or cause me anguish, only time will tell.
+What war and a failing body did to the mind of Goya, regex and recursive functions have done to mine.
 '''
 
 EXCECUTE_TESTS = False
