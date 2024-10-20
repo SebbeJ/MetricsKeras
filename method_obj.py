@@ -421,7 +421,7 @@ def compile_method_data(method_dict):
     
     weight = len(line_values)
     line_mean = sum(line_values)/weight
-    mean_comments = sum(comment_values)/weight
+    mean_comments = sum(comment_values)/weight #Byta detta till genomsnitt per rad kod
     mean_docstring = sum(docstring_values)/weight
     mean_comment_docstring = (sum(docstring_values) + sum(comment_values))/weight
     return line_mean, len(line_values), max(line_values), min(line_values), mean_comments, mean_docstring, mean_comment_docstring
