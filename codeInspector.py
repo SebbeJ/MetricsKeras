@@ -20,15 +20,16 @@ What war and a failing body did to the mind of Goya, regex and recursive functio
 
 EXCECUTE_TESTS = False
 
+
     
-def create_tree(root_path):
+def create_tree(root_path, include_inside_method):
     """Recursively create a tree structure starting from root_path."""
  
     if os.path.isfile(root_path):
         
         if root_path.endswith('.py'):
             file_to_add = file(os.path.basename(root_path), 'file', root_path)
-            file_to_add.calc_mean()
+            file_to_add.calc_mean(include_inside_method)
             # print(f"Vad jag far ar: {file_to_add.get_mean_method_size()}")
             # print(f"Weight: {file_to_add.get_weight()}")
             return file_to_add
@@ -39,7 +40,7 @@ def create_tree(root_path):
         
         for item in os.listdir(root_path):
             item_path = os.path.join(root_path, item)
-            child = create_tree(item_path) 
+            child = create_tree(item_path, include_inside_method) 
             if child: folder.add_child(child)
         
         folder.calc_mean()
@@ -65,14 +66,16 @@ def main():
 
 
 if __name__ == "__main__":
+    include_inside_method = True
     match EXCECUTE_TESTS:
         case False:
                 file_path = r"c:\Users\Sebastian Johansson\Desktop\Keras\keras-master" 
                 # file_path = r"c:\Users\Sebastian Johansson\Desktop\Keras\keras-master\keras\src\backend\common\dtypes_test.py"
-                root = create_tree(file_path)
+                root = create_tree(file_path, include_inside_method)
 
-                root.print_structure(0, None, True, True, True, True, True, True)
+                root.print_structure(0, None, True, True, True, True, True, True, True)
         case True:
+                #Only done if you count inside methods
                 expected_list = {
                      "Test_case1": {"Type": "folder", "mean method size": 2, "weight": 9, "level": 0},
                      "Test_case1/test_case1-1.py": {"Type": "file", "mean method size": 2.67, "weight": 3, "level": 1},
@@ -84,12 +87,12 @@ if __name__ == "__main__":
                 file_path = "Test_case1" 
                 #file_path = "C:/Users/Sebastian Johansson/Desktop/Keras/keras-master/benchmarks/layer_benchmark/core_benchmark.py"
 
-                root = create_tree(file_path)
+                root = create_tree(file_path, include_inside_method)
 
                 test_list = {}
                 root.retrieve_data(test_list)
 
-                root.print_structure(0, None, True, True, True, True, True, True)
+                root.print_structure(0, None, True, True, True, True, True, True, True)
 
                 print("Performing tests...")
                 test_fail = False

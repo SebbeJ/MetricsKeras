@@ -84,15 +84,15 @@ class file():
     def add_child(self, child):
         self.children.append(child)
 
-    def calc_mean(self):
+    def calc_mean(self, include_inside_method = True):
         
         if self.type == "file":
-            methods = count_method_lines(self.abs_path)
+            methods = count_method_lines(self.abs_path, include_inside_method)
             
             self.mean_method_size, self.weight, self.max_lines, self.min_lines, self.mean_comments, self.mean_docstring, self.mean_comment_docstring = compile_method_data(methods)
 
         elif self.type == "folder":
-            print(self.abs_path)
+            # print(self.abs_path)
             line_total = 0
             comment_total = 0
             docstring_total = 0
@@ -160,7 +160,7 @@ class file():
             child.retrieve_data(saved_data, abs_name, level +1)
         
 
-    def print_structure(self, level=0, max_level = None, mean_method= True, max=True, min=True, mean_comments=False, mean_docstring=False, mean_docstring_comment = False):
+    def print_structure(self, level=0, max_level = None, mean_method= True, max=True, min=True, mean_comments=False, mean_comment_per_line = False, mean_docstring=False, mean_docstring_comment = False):
         """Helper method to print the structure of the tree."""
         indent = " " * (level * 4)
         string_to_print = f"{indent}{self.name} (Type: {self.type}"
@@ -173,6 +173,13 @@ class file():
             string_to_print += f", size of smallest method: {self.min_lines}"
         if mean_comments:
             string_to_print += f", mean ammount of comments per method: {self.mean_comments}"
+        if mean_comment_per_line:
+            print_value = 0
+            if self.mean_method_size != 0:
+                print_value = self.mean_comments/self.mean_method_size
+            else:
+                print_value = "-"
+            string_to_print += f", mean ammount of comments per line in method: {print_value}"
         if mean_docstring:
             string_to_print += f", mean ammount of docstrings per method: {self.mean_docstring}"
         if mean_docstring_comment:
@@ -185,7 +192,7 @@ class file():
                 return
 
         for child in self.children:
-            child.print_structure(level + 1, max_level, mean_method, max, min, mean_comments, mean_docstring, mean_docstring_comment)
+            child.print_structure(level + 1, max_level, mean_method, max, min, mean_comments, mean_comment_per_line, mean_docstring, mean_docstring_comment)
         
     
 
@@ -222,7 +229,18 @@ def simple_inc(method, line, inside_docstring):
             method.inc_comments()
             # print("Finds it as comment too!")
 
-def count_method_lines(file_path):
+def inc_parent(method):
+    parent = method.get_parent()
+    if parent:
+        lines_counted = method.get_line_count()
+        comments_counted = method.get_comments()
+        docstrings_counted = method.get_docstring()
+
+        parent.inc_line_count(lines_counted)
+        parent.inc_comments(comments_counted)
+        parent.inc_docstring(docstrings_counted)
+
+def count_method_lines(file_path, include_inside_method = True):
     method_regex = re.compile(r'^\s*def\s+(\w+)\s*\(')  
     decorator_regex = re.compile(r'^\s*@')  
     decorator_unended_regex = re.compile(r'^\s*@\w+.*\(\s*$|^\s*@\w+.*\(\s*#')
@@ -347,14 +365,8 @@ def count_method_lines(file_path):
                     methods[current_method.get_name()] = current_method
 
                 if current_method: 
-                    if current_method.get_parent():
-                        lines_counted = current_method.get_line_count()
-                        comments_counted = current_method.get_comments()
-                        docstrings_counted = current_method.get_docstring()
-
-                        parent.inc_line_count(lines_counted)
-                        parent.inc_comments(comments_counted)
-                        parent.inc_docstring(docstrings_counted)
+                    if include_inside_method:
+                        inc_parent(current_method)
 
                
                 parent = find_parent(current_method, indent_level)
@@ -374,13 +386,10 @@ def count_method_lines(file_path):
 
                 if current_method:
                     methods[current_method.get_name()] = current_method
-                parent = find_parent(current_method, indent_level)
-                if parent:
-                    parent.inc_line_count(lines_counted)
-                    parent.inc_comments(comments_counted)
-                    parent.inc_docstring(docstrings_counted)
+                if include_inside_method:
+                    inc_parent(current_method)
 
-                
+                parent = find_parent(current_method, indent_level)
                 current_method = parent
                 if current_method:
                     simple_inc(current_method, line, inside_docstring)
@@ -397,6 +406,8 @@ def count_method_lines(file_path):
             else: end_was_not_found = False
 
         if current_method is not None:
+            if include_inside_method:
+                inc_parent(current_method)
             methods[current_method.get_name()] = current_method
     
     return methods
@@ -414,8 +425,8 @@ def compile_method_data(method_dict):
         line_values.append(m.get_line_count())
         comment_values.append(m.get_comments())
         docstring_values.append(m.get_docstring())
-        if m.get_line_count() == 0:
-            print(f"{m.get_name()} har inga lines")
+        # if m.get_line_count() == 0:
+        #     print(f"{m.get_name()} har inga lines")
 
 
     
