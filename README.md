@@ -6,6 +6,8 @@ This is a project for all the code in the raport for Assignment QAA. Note, these
 Note, for this code you will need to be able to execute python code. This code was also made on a mix of Linux, MacOS and windows machines, therefore some extra work may be required. Almost all of the code requires the [Keras Library](https://github.com/Uplink036/keras), linked is one of the forks that was made. 
 
 ## Project Structure
+
+```
 ├── Modifiability/
 │   └── *.py
 ├── Testability/
@@ -14,14 +16,14 @@ Note, for this code you will need to be able to execute python code. This code w
 │   └── *.py
 ├── README.md
 └── requirements.txt
-
+```
 
 ## Setup Instructions
 Clone the repo using:
 
-´´´bash
+```bash
 git clone git@github.com:keras-team/keras.git
-´´´
+```
 
 Move the needed files into the root of the project or, alternatively, set the path to the project. Which one depends on the file executed. 
 
