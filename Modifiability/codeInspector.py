@@ -1,6 +1,6 @@
 import sys
 import re
-from method_obj import method, file
+from Modifiability.method_obj import method, file
 import os
 import unittest
 
